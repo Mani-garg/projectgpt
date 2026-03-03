@@ -1,9 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import Sidebar from '../components/Sidebar.jsx';
-import StatCard from '../components/StatCard.jsx';
+import EnhancedStatCard from '../components/EnhancedStatCard.jsx';
+import DataTable from '../components/DataTable.jsx';
+import StatusBadge from '../components/StatusBadge.jsx';
+import ChartCard from '../components/ChartCard.jsx';
+import FormField from '../components/FormField.jsx';
+import EmptyState from '../components/EmptyState.jsx';
+import Skeleton from '../components/Skeleton.jsx';
+import NotificationToast from '../components/NotificationToast.jsx';
+import { useNotification } from '../hooks/useNotification.js';
 
 const materialUnits = ['kg', 'g', 'm', 'cm', 'litre', 'pcs', 'rolls', 'cones'];
 
@@ -28,7 +36,9 @@ const DashboardPage = () => {
   const [data, setData] = useState({ materials: [], production: [], sales: [], analytics: null, lowStock: [] });
   const [insights, setInsights] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [error, setError] = useState('');
+  const notification = useNotification();
 
   const loadAllData = async () => {
     if (!company?.id) return;
@@ -47,8 +57,12 @@ const DashboardPage = () => {
         analytics,
         lowStock: analytics.lowStock || []
       });
+      setError('');
     } catch (err) {
       setError(err.message);
+      notification.error(err.message);
+    } finally {
+      setIsInitialLoading(false);
     }
   };
 
@@ -65,9 +79,11 @@ const DashboardPage = () => {
         body: JSON.stringify({ company_id: company.id, ...forms[type] })
       });
       setForms((prev) => ({ ...prev, [type]: initialForms[type] }));
+      notification.success(`${type[0].toUpperCase() + type.slice(1)} entry saved successfully.`);
       await loadAllData();
     } catch (err) {
       setError(err.message);
+      notification.error(err.message);
     } finally {
       setLoading(false);
     }
@@ -86,8 +102,10 @@ const DashboardPage = () => {
         })
       });
       setInsights(res.insights);
+      notification.success('AI insights generated.');
     } catch (err) {
       setError(err.message);
+      notification.error(err.message);
     } finally {
       setLoading(false);
     }
@@ -95,10 +113,14 @@ const DashboardPage = () => {
 
   const stats = useMemo(() => {
     const analytics = data.analytics || { totalSales: 0, totalCost: 0, profit: 0 };
+    const salesTrend = (data.analytics?.dailySales || []).map((item) => ({ value: item.total }));
+    const costTrend = (data.analytics?.dailyCost || []).map((item) => ({ value: item.total }));
+    const profitTrend = salesTrend.map((item, index) => ({ value: item.value - (costTrend[index]?.value || 0) }));
+
     return [
-      { title: 'Total Sales', value: `₹${analytics.totalSales?.toFixed?.(2) || analytics.totalSales}`, tone: 'emerald' },
-      { title: 'Total Cost', value: `₹${analytics.totalCost?.toFixed?.(2) || analytics.totalCost}`, tone: 'amber' },
-      { title: 'Profit / Loss', value: `₹${analytics.profit?.toFixed?.(2) || analytics.profit}`, tone: analytics.profit >= 0 ? 'indigo' : 'rose' }
+      { title: 'Total Sales', value: analytics.totalSales || 0, color: 'emerald', trend: salesTrend },
+      { title: 'Total Cost', value: analytics.totalCost || 0, color: 'amber', trend: costTrend },
+      { title: 'Profit / Loss', value: analytics.profit || 0, color: analytics.profit >= 0 ? 'indigo' : 'rose', trend: profitTrend }
     ];
   }, [data.analytics]);
 
@@ -111,8 +133,17 @@ const DashboardPage = () => {
     setForms((prev) => ({ ...prev, [scope]: { ...prev[scope], [key]: value } }));
   };
 
+  if (isInitialLoading) {
+    return (
+      <div className="min-h-screen bg-slate-950 p-8">
+        <Skeleton rows={6} />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen p-4 md:p-6 bg-[radial-gradient(circle_at_top,#164e63_0%,#111827_40%,#020617_100%)]">
+      <NotificationToast items={notification.toasts} onDismiss={notification.dismiss} />
       <div className="flex flex-col md:flex-row gap-4">
         <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
         <main className="flex-1 space-y-4">
@@ -126,105 +157,118 @@ const DashboardPage = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            {stats.map((stat) => <StatCard key={stat.title} {...stat} />)}
+            {stats.map((stat) => <EnhancedStatCard key={stat.title} {...stat} />)}
           </div>
 
           {error && <p className="text-rose-200 bg-rose-900/40 border border-rose-300/30 rounded-xl px-3 py-2 text-sm">{error}</p>}
 
           {activeTab === 'materials' && (
-            <section className="bg-white/90 backdrop-blur rounded-2xl p-5 shadow-2xl border border-cyan-100/60 space-y-4">
+            <section className="bg-white/10 backdrop-blur rounded-2xl p-5 shadow-2xl border border-cyan-100/20 space-y-4">
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                <h2 className="text-lg font-semibold text-slate-800">Raw Materials & Units</h2>
-                <input className="border border-slate-200 p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-300 text-sm md:w-72" placeholder="Search material name..." value={materialSearch} onChange={(e) => setMaterialSearch(e.target.value)} />
+                <h2 className="text-lg font-semibold text-slate-100">Raw Materials & Units</h2>
+                <input className="border border-slate-500/70 bg-slate-950/30 text-slate-100 p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-300 text-sm md:w-72" placeholder="Search material name..." value={materialSearch} onChange={(e) => setMaterialSearch(e.target.value)} />
               </div>
-              <div className="grid md:grid-cols-5 gap-2">
+              <div className="grid md:grid-cols-5 gap-3">
                 {['name', 'quantity', 'cost_per_unit'].map((field) => (
-                  <input
+                  <FormField
                     key={field}
-                    className="border border-slate-200 p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-300"
-                    placeholder={fieldLabels[field] || field}
+                    label={fieldLabels[field] || field}
                     value={forms.materials[field]}
                     onChange={(e) => updateForm('materials', field, e.target.value)}
                   />
                 ))}
-                <select className="border border-slate-200 p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-300 bg-white" value={forms.materials.unit} onChange={(e) => updateForm('materials', 'unit', e.target.value)}>
-                  {materialUnits.map((unit) => <option key={unit} value={unit}>{unit}</option>)}
-                </select>
-                <button className="primary-btn rounded-lg px-3" onClick={() => onSubmit('materials', '/api/materials')} disabled={loading}>Add Material</button>
+                <FormField
+                  label="Unit"
+                  options={materialUnits}
+                  value={forms.materials.unit}
+                  onChange={(e) => updateForm('materials', 'unit', e.target.value)}
+                />
+                <button className="primary-btn rounded-lg px-3 mt-7" onClick={() => onSubmit('materials', '/api/materials')} disabled={loading}>Add Material</button>
               </div>
-              <div className="overflow-auto rounded-xl border border-slate-200">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-left text-slate-600 bg-slate-100/70">
-                      <th className="p-2">Name</th>
-                      <th className="p-2">Quantity</th>
-                      <th className="p-2">Unit</th>
-                      <th className="p-2">Cost / Unit</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredMaterials.map((m) => (
-                      <tr key={m.id} className="border-t border-slate-100">
-                        <td className="p-2 font-medium text-slate-700">{m.name}</td>
-                        <td className="p-2">{m.quantity}</td>
-                        <td className="p-2 uppercase text-xs tracking-wide text-cyan-700">{m.unit || 'kg'}</td>
-                        <td className="p-2">₹{m.cost_per_unit}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: 'name', label: 'Name', render: (row) => <span className="font-medium">{row.name}</span> },
+                  { key: 'quantity', label: 'Quantity' },
+                  { key: 'unit', label: 'Unit', render: (row) => <span className="uppercase text-xs tracking-wide text-cyan-200">{row.unit || 'kg'}</span> },
+                  { key: 'cost_per_unit', label: 'Cost / Unit', render: (row) => `₹${row.cost_per_unit}` },
+                  { key: 'status', label: 'Status', render: (row) => <StatusBadge quantity={row.quantity} /> }
+                ]}
+                data={filteredMaterials}
+                emptyTitle="No materials found"
+                emptyDescription="Try adding inventory or adjusting your search query."
+              />
             </section>
           )}
 
           {activeTab === 'production' && (
-            <section className="bg-white/90 backdrop-blur rounded-2xl p-5 shadow-2xl border border-cyan-100/60 space-y-3">
-              <h2 className="text-lg font-semibold text-slate-800">Production</h2>
-              <div className="grid md:grid-cols-6 gap-2">
+            <section className="bg-white/10 backdrop-blur rounded-2xl p-5 shadow-2xl border border-cyan-100/20 space-y-3">
+              <h2 className="text-lg font-semibold text-slate-100">Production</h2>
+              <div className="grid md:grid-cols-5 gap-3">
                 {['product_name', 'quantity', 'cost', 'date'].map((field) => (
-                  <input key={field} type={field === 'date' ? 'date' : 'text'} className="border border-slate-200 p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-300" placeholder={fieldLabels[field] || field} value={forms.production[field]} onChange={(e) => updateForm('production', field, e.target.value)} />
+                  <FormField key={field} label={fieldLabels[field] || field} type={field === 'date' ? 'date' : 'text'} value={forms.production[field]} onChange={(e) => updateForm('production', field, e.target.value)} />
                 ))}
-                <button className="primary-btn rounded-lg px-3" onClick={() => onSubmit('production', '/api/production')} disabled={loading}>Add Batch</button>
+                <button className="primary-btn rounded-lg px-3 mt-7" onClick={() => onSubmit('production', '/api/production')} disabled={loading}>Add Batch</button>
               </div>
-              <table className="w-full text-sm"><thead><tr className="text-left text-slate-600"><th>Product</th><th>Qty</th><th>Cost</th><th>Date</th></tr></thead><tbody>{data.production.map((p) => <tr key={p.id}><td>{p.product_name}</td><td>{p.quantity}</td><td>₹{p.cost}</td><td>{p.date}</td></tr>)}</tbody></table>
+              <DataTable
+                columns={[
+                  { key: 'product_name', label: 'Product' },
+                  { key: 'quantity', label: 'Qty' },
+                  { key: 'cost', label: 'Cost', render: (row) => `₹${row.cost}` },
+                  { key: 'date', label: 'Date' }
+                ]}
+                data={data.production}
+                emptyTitle="No production batches"
+              />
             </section>
           )}
 
           {activeTab === 'sales' && (
-            <section className="bg-white/90 backdrop-blur rounded-2xl p-5 shadow-2xl border border-cyan-100/60 space-y-3">
-              <h2 className="text-lg font-semibold text-slate-800">Sales</h2>
-              <div className="grid md:grid-cols-7 gap-2">
+            <section className="bg-white/10 backdrop-blur rounded-2xl p-5 shadow-2xl border border-cyan-100/20 space-y-3">
+              <h2 className="text-lg font-semibold text-slate-100">Sales</h2>
+              <div className="grid md:grid-cols-6 gap-3">
                 {['buyer_name', 'location', 'quantity', 'selling_price', 'date'].map((field) => (
-                  <input key={field} type={field === 'date' ? 'date' : 'text'} className="border border-slate-200 p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-300" placeholder={fieldLabels[field] || field} value={forms.sales[field]} onChange={(e) => updateForm('sales', field, e.target.value)} />
+                  <FormField key={field} label={fieldLabels[field] || field} type={field === 'date' ? 'date' : 'text'} value={forms.sales[field]} onChange={(e) => updateForm('sales', field, e.target.value)} />
                 ))}
-                <button className="primary-btn rounded-lg px-3" onClick={() => onSubmit('sales', '/api/sales')} disabled={loading}>Record Sale</button>
+                <button className="primary-btn rounded-lg px-3 mt-7" onClick={() => onSubmit('sales', '/api/sales')} disabled={loading}>Record Sale</button>
               </div>
-              <table className="w-full text-sm"><thead><tr className="text-left text-slate-600"><th>Buyer</th><th>Location</th><th>Qty</th><th>Price</th><th>Date</th></tr></thead><tbody>{data.sales.map((s) => <tr key={s.id}><td>{s.buyer_name}</td><td>{s.location}</td><td>{s.quantity}</td><td>₹{s.selling_price}</td><td>{s.date}</td></tr>)}</tbody></table>
+              <DataTable
+                columns={[
+                  { key: 'buyer_name', label: 'Buyer' },
+                  { key: 'location', label: 'Location' },
+                  { key: 'quantity', label: 'Qty' },
+                  { key: 'selling_price', label: 'Price', render: (row) => `₹${row.selling_price}` },
+                  { key: 'date', label: 'Date' }
+                ]}
+                data={data.sales}
+                emptyTitle="No sales recorded"
+              />
             </section>
           )}
 
           {activeTab === 'analytics' && data.analytics && (
-            <section className="grid lg:grid-cols-2 gap-4">
-              <div className="bg-white/90 backdrop-blur rounded-2xl p-4 shadow-2xl border border-cyan-100/60 h-80">
-                <h3 className="font-semibold mb-2 text-slate-800">Daily Sales</h3>
-                <ResponsiveContainer width="100%" height="100%"><LineChart data={data.analytics.dailySales}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="date" /><YAxis /><Tooltip /><Legend /><Line type="monotone" dataKey="total" stroke="#0891b2" /></LineChart></ResponsiveContainer>
-              </div>
-              <div className="bg-white/90 backdrop-blur rounded-2xl p-4 shadow-2xl border border-cyan-100/60 h-80">
-                <h3 className="font-semibold mb-2 text-slate-800">Daily Production Cost</h3>
-                <ResponsiveContainer width="100%" height="100%"><BarChart data={data.analytics.dailyCost}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="date" /><YAxis /><Tooltip /><Legend /><Bar dataKey="total" fill="#06b6d4" /></BarChart></ResponsiveContainer>
-              </div>
-              <div className="bg-white/90 backdrop-blur rounded-2xl p-4 shadow-2xl border border-cyan-100/60 lg:col-span-2">
-                <h3 className="font-semibold mb-2 text-slate-800">Low Stock Warnings</h3>
-                {data.lowStock.length === 0 ? <p className="text-emerald-600">No low stock alerts 🎉</p> : <ul className="list-disc pl-5 text-slate-700">{data.lowStock.map((item) => <li key={item.id}>{item.name} ({item.quantity} {item.unit || 'kg'})</li>)}</ul>}
+            <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <ChartCard title="Daily Sales Trend" change={5.2}>
+                <div className="h-72">
+                  <ResponsiveContainer width="100%" height="100%"><LineChart data={data.analytics.dailySales}><CartesianGrid strokeDasharray="3 3" stroke="#1e293b" /><XAxis dataKey="date" stroke="#cbd5e1" /><YAxis stroke="#cbd5e1" /><Tooltip /><Line type="monotone" dataKey="total" stroke="#22d3ee" strokeWidth={3} dot={false} /></LineChart></ResponsiveContainer>
+                </div>
+              </ChartCard>
+              <ChartCard title="Daily Production Cost" change={-2.1}>
+                <div className="h-72">
+                  <ResponsiveContainer width="100%" height="100%"><BarChart data={data.analytics.dailyCost}><CartesianGrid strokeDasharray="3 3" stroke="#1e293b" /><XAxis dataKey="date" stroke="#cbd5e1" /><YAxis stroke="#cbd5e1" /><Tooltip /><Bar dataKey="total" fill="#818cf8" radius={[8, 8, 0, 0]} /></BarChart></ResponsiveContainer>
+                </div>
+              </ChartCard>
+              <div className="rounded-2xl border border-cyan-100/20 bg-white/10 p-4 shadow-2xl backdrop-blur lg:col-span-2">
+                <h3 className="font-semibold mb-2 text-slate-100">Low Stock Warnings</h3>
+                {data.lowStock.length === 0 ? <EmptyState title="Inventory is healthy" description="No low stock alerts right now." icon="✅" /> : <ul className="list-disc pl-5 text-slate-200">{data.lowStock.map((item) => <li key={item.id}>{item.name} ({item.quantity} {item.unit || 'kg'})</li>)}</ul>}
               </div>
             </section>
           )}
 
           {activeTab === 'insights' && (
-            <section className="bg-white/90 backdrop-blur rounded-2xl p-5 shadow-2xl border border-cyan-100/60 space-y-4">
-              <h2 className="text-lg font-semibold text-slate-800">Business Insights</h2>
+            <section className="bg-white/10 backdrop-blur rounded-2xl p-5 shadow-2xl border border-cyan-100/20 space-y-4">
+              <h2 className="text-lg font-semibold text-slate-100">Business Insights</h2>
               <button onClick={fetchInsights} className="primary-btn px-4 py-2 rounded-lg" disabled={loading}>Generate Business Insights</button>
-              {insights && <pre className="bg-slate-100 p-3 rounded whitespace-pre-wrap text-sm">{insights}</pre>}
+              {insights ? <pre className="bg-slate-950/50 text-slate-100 p-3 rounded whitespace-pre-wrap text-sm">{insights}</pre> : <EmptyState title="No insights yet" description="Generate AI insights to get recommendations." icon="🧠" />}
             </section>
           )}
         </main>
