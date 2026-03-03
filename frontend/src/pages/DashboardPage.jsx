@@ -8,12 +8,11 @@ import StatCard from '../components/StatCard.jsx';
 const initialForms = {
   materials: { name: '', quantity: '', cost_per_unit: '' },
   production: { product_name: '', quantity: '', cost: '', date: '' },
-  sales: { buyer_name: '', location: '', quantity: '', selling_price: '', date: '' },
-  logo: { style: 'minimalist textile emblem' }
+  sales: { buyer_name: '', location: '', quantity: '', selling_price: '', date: '' }
 };
 
 const DashboardPage = () => {
-  const { company, logout, login } = useAuth();
+  const { company, logout } = useAuth();
   const [activeTab, setActiveTab] = useState('materials');
   const [forms, setForms] = useState(initialForms);
   const [data, setData] = useState({ materials: [], production: [], sales: [], analytics: null, lowStock: [] });
@@ -64,27 +63,12 @@ const DashboardPage = () => {
     }
   };
 
-  const generateLogo = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const res = await api('/api/ai/logo', {
-        method: 'POST',
-        body: JSON.stringify({ company_id: company.id, company_name: company.name, style: forms.logo.style })
-      });
-      login({ ...company, logo_url: res.logo_url });
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const fetchInsights = async () => {
     setLoading(true);
     setError('');
     try {
-      const res = await api('/api/ai/insights', {
+      const res = await api('/api/insights', {
         method: 'POST',
         body: JSON.stringify({
           materials: data.materials,
@@ -120,7 +104,6 @@ const DashboardPage = () => {
               <p className="text-sm text-slate-500">Manage textile operations in one place.</p>
             </div>
             <div className="flex items-center gap-3">
-              {company.logo_url && <img src={company.logo_url} alt="Logo" className="w-12 h-12 rounded-full object-cover border" />}
               <button onClick={logout} className="px-3 py-1.5 bg-slate-900 text-white rounded">Logout</button>
             </div>
           </div>
@@ -189,14 +172,10 @@ const DashboardPage = () => {
             </section>
           )}
 
-          {activeTab === 'ai' && (
+          {activeTab === 'insights' && (
             <section className="bg-white rounded-xl p-4 shadow space-y-4">
-              <h2 className="text-lg font-semibold">AI Studio</h2>
-              <div className="flex flex-col md:flex-row gap-2">
-                <input className="border p-2 rounded flex-1" value={forms.logo.style} onChange={(e) => setForms((p) => ({ ...p, logo: { style: e.target.value } }))} placeholder="Logo style" />
-                <button onClick={generateLogo} className="bg-indigo-600 text-white px-3 py-2 rounded" disabled={loading}>Generate Logo</button>
-              </div>
-              <button onClick={fetchInsights} className="bg-emerald-600 text-white px-3 py-2 rounded" disabled={loading}>Generate AI Business Insights</button>
+              <h2 className="text-lg font-semibold">Business Insights</h2>
+              <button onClick={fetchInsights} className="bg-emerald-600 text-white px-3 py-2 rounded" disabled={loading}>Generate Business Insights</button>
               {insights && <pre className="bg-slate-100 p-3 rounded whitespace-pre-wrap text-sm">{insights}</pre>}
             </section>
           )}

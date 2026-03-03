@@ -6,7 +6,7 @@ import materialRoutes from './routes/materialRoutes.js';
 import productionRoutes from './routes/productionRoutes.js';
 import salesRoutes from './routes/salesRoutes.js';
 import analyticsRoutes from './routes/analyticsRoutes.js';
-import aiRoutes from './routes/aiRoutes.js';
+import insightsRoutes from './routes/insightsRoutes.js';
 import { errorHandler, notFound } from './middleware/errorHandler.js';
 
 dotenv.config();
@@ -29,7 +29,7 @@ app.use('/api/materials', materialRoutes);
 app.use('/api/production', productionRoutes);
 app.use('/api/sales', salesRoutes);
 app.use('/api/analytics', analyticsRoutes);
-app.use('/api/ai', aiRoutes);
+app.use('/api/insights', insightsRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

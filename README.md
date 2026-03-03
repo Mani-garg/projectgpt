@@ -1,11 +1,10 @@
-# AI-Powered Textile ERP (Full Stack)
+# Textile ERP (Full Stack)
 
-Production-ready modular Textile ERP web application with AI logo generation and AI business insights.
+Production-ready modular Textile ERP web application with business insights.
 
 ## Tech Stack
 - **Frontend**: React + Vite, Tailwind CSS, React Router, Recharts
 - **Backend**: Node.js, Express, MySQL, dotenv, bcrypt
-- **AI**: OpenAI API (`gpt-image-1` for logos, `gpt-4.1-mini` for insights)
 
 ---
 
@@ -60,7 +59,6 @@ npm run dev
 - `DB_PASSWORD=your_password`
 - `DB_NAME=textile_erp`
 - `DB_PORT=3306`
-- `OPENAI_API_KEY=your_openai_key`
 - `CLIENT_URL=http://localhost:5173`
 
 ---
@@ -99,11 +97,8 @@ Frontend defaults to backend on `http://localhost:5000`.
 ### Analytics
 - `GET /api/analytics/:company_id`
 
-### AI
-- `POST /api/ai/logo`
-- `POST /api/ai/insights`
-
----
+### Insights
+- `POST /api/insights`
 
 ## Sample API Calls
 
@@ -128,16 +123,9 @@ curl -X POST http://localhost:5000/api/materials \
   -d '{"company_id":1,"name":"Cotton Yarn","quantity":200,"cost_per_unit":15.75}'
 ```
 
-### Generate Logo
+### Business Insights
 ```bash
-curl -X POST http://localhost:5000/api/ai/logo \
-  -H "Content-Type: application/json" \
-  -d '{"company_id":1,"company_name":"Textile One","style":"minimal monogram"}'
-```
-
-### AI Insights
-```bash
-curl -X POST http://localhost:5000/api/ai/insights \
+curl -X POST http://localhost:5000/api/insights \
   -H "Content-Type: application/json" \
   -d '{"materials":[{"name":"Cotton Yarn","quantity":35}],"production":[{"product_name":"Shirt","quantity":120,"cost":3000}],"sales":[{"quantity":120,"selling_price":45}]}'
 ```
@@ -147,8 +135,7 @@ curl -X POST http://localhost:5000/api/ai/insights \
 ## Highlights
 - Multi-company data isolation using `company_id` on each business table.
 - Secure auth with bcrypt-hashed passwords.
-- AI logo generator + persisted company logo URL.
-- AI insight engine for profitability, stock warnings, and recommendations.
+- Business insight engine for profitability, stock warnings, and recommendations.
 - Analytics dashboard with KPI cards and daily charts.
 - Low-stock alerts integrated in analytics.
 
