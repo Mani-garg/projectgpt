@@ -2,14 +2,14 @@ import { addMaterial, getMaterialsByCompany } from '../models/materialModel.js';
 
 export const createMaterial = async (req, res, next) => {
   try {
-    const { company_id, name, quantity, cost_per_unit } = req.body;
+    const { company_id, name, quantity, cost_per_unit, unit } = req.body;
 
     if (!company_id || !name || quantity == null || cost_per_unit == null) {
       res.status(400);
       throw new Error('company_id, name, quantity, and cost_per_unit are required');
     }
 
-    const id = await addMaterial({ company_id, name, quantity, cost_per_unit });
+    const id = await addMaterial({ company_id, name, quantity, cost_per_unit, unit: unit || 'kg' });
     return res.status(201).json({ message: 'Material added', id });
   } catch (error) {
     return next(error);

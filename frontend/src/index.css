@@ -1,9 +1,11 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 body {
-  font-family: Inter, system-ui, -apple-system, sans-serif;
+  font-family: 'Plus Jakarta Sans', Inter, system-ui, -apple-system, sans-serif;
 }
 
 @layer components {
@@ -12,11 +14,11 @@ body {
   }
 
   .form-input {
-    @apply w-full bg-white/10 border border-white/20 p-3 rounded-xl text-white placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-300;
+    @apply w-full bg-white/10 border border-white/20 p-3 rounded-xl text-white placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-cyan-300;
   }
 
   .primary-btn {
-    @apply bg-gradient-to-r from-indigo-500 to-cyan-500 text-white py-2.5 px-4 font-medium rounded-xl shadow-lg shadow-indigo-900/40 hover:-translate-y-0.5 hover:shadow-xl transition-all duration-300;
+    @apply bg-gradient-to-r from-cyan-500 to-indigo-500 text-white py-2.5 px-4 font-medium rounded-xl shadow-lg shadow-cyan-900/30 hover:-translate-y-0.5 hover:shadow-xl transition-all duration-300;
   }
 
   .orb {
