@@ -6,7 +6,6 @@ import Sidebar from '../components/Sidebar.jsx';
 import EnhancedStatCard from '../components/EnhancedStatCard.jsx';
 import DataTable from '../components/DataTable.jsx';
 import StatusBadge from '../components/StatusBadge.jsx';
-import ChartCard from '../components/ChartCard.jsx';
 import FormField from '../components/FormField.jsx';
 import EmptyState from '../components/EmptyState.jsx';
 import Skeleton from '../components/Skeleton.jsx';
@@ -84,6 +83,14 @@ const DashboardPage = () => {
   useEffect(() => {
     setSelectedRows([]);
   }, [activeTab]);
+
+  useEffect(() => {
+    if (!data.analytics) return;
+    console.log('📊 Analytics Data:', data.analytics);
+    console.log('💰 Total Sales:', data.analytics?.totalSales);
+    console.log('📉 Total Cost:', data.analytics?.totalCost);
+    console.log('📈 Daily Sales:', data.analytics?.dailySales);
+  }, [data.analytics]);
 
   const onSubmit = async (type, endpoint) => {
     setLoading(true);
@@ -364,8 +371,42 @@ const DashboardPage = () => {
 
           {activeTab === 'analytics' && data.analytics && (
             <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <ChartCard title="Daily Sales Trend" change={5.2}><div className="h-72"><ResponsiveContainer width="100%" height="100%"><LineChart data={data.analytics.dailySales}><CartesianGrid strokeDasharray="3 3" stroke="#1e293b" /><XAxis dataKey="date" stroke="#cbd5e1" /><YAxis stroke="#cbd5e1" /><Tooltip /><Line type="monotone" dataKey="total" stroke="#22d3ee" strokeWidth={3} dot={false} /></LineChart></ResponsiveContainer></div></ChartCard>
-              <ChartCard title="Daily Production Cost" change={-2.1}><div className="h-72"><ResponsiveContainer width="100%" height="100%"><BarChart data={data.analytics.dailyCost}><CartesianGrid strokeDasharray="3 3" stroke="#1e293b" /><XAxis dataKey="date" stroke="#cbd5e1" /><YAxis stroke="#cbd5e1" /><Tooltip /><Bar dataKey="total" fill="#818cf8" radius={[8, 8, 0, 0]} /></BarChart></ResponsiveContainer></div></ChartCard>
+              <div className="rounded-2xl border border-cyan-100/20 bg-white/10 p-4 shadow-2xl backdrop-blur">
+                <h3 className="font-semibold mb-3 text-slate-100">Daily Sales</h3>
+                {data.analytics.dailySales && data.analytics.dailySales.length > 0 ? (
+                  <div className="h-72">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={data.analytics.dailySales}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                        <XAxis dataKey="date" stroke="#cbd5e1" />
+                        <YAxis stroke="#cbd5e1" />
+                        <Tooltip />
+                        <Line type="monotone" dataKey="total" stroke="#22d3ee" strokeWidth={3} dot={false} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                ) : (
+                  <EmptyState title="No sales trend yet" description="Add sales entries to view the daily sales chart." icon="📉" />
+                )}
+              </div>
+              <div className="rounded-2xl border border-cyan-100/20 bg-white/10 p-4 shadow-2xl backdrop-blur">
+                <h3 className="font-semibold mb-3 text-slate-100">Daily Production Cost</h3>
+                {data.analytics.dailyCost && data.analytics.dailyCost.length > 0 ? (
+                  <div className="h-72">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={data.analytics.dailyCost}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                        <XAxis dataKey="date" stroke="#cbd5e1" />
+                        <YAxis stroke="#cbd5e1" />
+                        <Tooltip />
+                        <Bar dataKey="total" fill="#818cf8" radius={[8, 8, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                ) : (
+                  <EmptyState title="No production trend yet" description="Add production entries to view the daily cost chart." icon="🏭" />
+                )}
+              </div>
               <div className="rounded-2xl border border-cyan-100/20 bg-white/10 p-4 shadow-2xl backdrop-blur lg:col-span-2">
                 <h3 className="font-semibold mb-2 text-slate-100">Low Stock Warnings</h3>
                 {data.lowStock.length === 0 ? <EmptyState title="Inventory is healthy" description="No low stock alerts right now." icon="✅" /> : <ul className="list-disc pl-5 text-slate-200">{data.lowStock.map((item) => <li key={item.id}>{item.name} ({item.quantity} {item.unit || 'kg'})</li>)}</ul>}
