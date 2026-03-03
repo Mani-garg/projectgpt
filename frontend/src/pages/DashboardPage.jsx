@@ -61,11 +61,11 @@ const DashboardPage = () => {
       ]);
 
       setData({
-        materials: materials.materials,
-        production: production.production,
-        sales: sales.sales,
+        materials: Array.isArray(materials.materials) ? materials.materials : [],
+        production: Array.isArray(production.production) ? production.production : [],
+        sales: Array.isArray(sales.sales) ? sales.sales : [],
         analytics,
-        lowStock: analytics.lowStock || []
+        lowStock: Array.isArray(analytics?.lowStock) ? analytics.lowStock : []
       });
       setError('');
     } catch (err) {
@@ -221,7 +221,7 @@ const DashboardPage = () => {
   }, [data.analytics]);
 
   const filteredData = useMemo(() => {
-    const list = data[activeTab] || [];
+    const list = Array.isArray(data[activeTab]) ? data[activeTab] : [];
     return list.filter((item) => {
       const query = (filters.searchText || '').toLowerCase();
       const asText = Object.values(item).join(' ').toLowerCase();
