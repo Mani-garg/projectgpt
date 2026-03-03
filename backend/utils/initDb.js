@@ -14,6 +14,7 @@ const schemaStatements = [
     company_id INT NOT NULL,
     name VARCHAR(255) NOT NULL,
     quantity DECIMAL(12,2) NOT NULL,
+    unit VARCHAR(30) NOT NULL DEFAULT 'kg',
     cost_per_unit DECIMAL(12,2) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE
@@ -47,6 +48,8 @@ export const initializeDatabase = async () => {
     for (const query of schemaStatements) {
       await connection.query(query);
     }
+
+    await connection.query("ALTER TABLE materials ADD COLUMN IF NOT EXISTS unit VARCHAR(30) NOT NULL DEFAULT 'kg'");
   } finally {
     connection.release();
   }
