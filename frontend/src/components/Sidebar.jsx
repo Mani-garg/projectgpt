@@ -1,15 +1,16 @@
 const tabs = ['materials', 'production', 'sales', 'analytics', 'insights'];
 
 const Sidebar = ({ activeTab, setActiveTab }) => (
-  <aside className="w-full md:w-64 bg-slate-900 text-white p-4 rounded-xl">
-    <h2 className="text-xl font-semibold mb-6">Textile ERP</h2>
+  <aside className="w-full md:w-72 bg-slate-900/70 text-white p-4 rounded-2xl backdrop-blur border border-white/10 shadow-2xl animate-rise-in">
+    <h2 className="text-2xl font-semibold mb-1 bg-gradient-to-r from-indigo-300 to-cyan-300 bg-clip-text text-transparent">Textile ERP</h2>
+    <p className="text-xs text-slate-300 mb-6">Control center</p>
     <ul className="space-y-2">
       {tabs.map((tab) => (
         <li key={tab}>
           <button
             onClick={() => setActiveTab(tab)}
-            className={`w-full text-left px-3 py-2 rounded-lg capitalize transition ${
-              activeTab === tab ? 'bg-indigo-600' : 'hover:bg-slate-700'
+            className={`w-full text-left px-3 py-2.5 rounded-xl capitalize transition-all duration-300 ${
+              activeTab === tab ? 'bg-gradient-to-r from-indigo-500 to-cyan-500 shadow-lg shadow-indigo-900/40 -translate-y-0.5' : 'hover:bg-slate-700/70'
             }`}
           >
             {tab}
