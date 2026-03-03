@@ -6,6 +6,7 @@
 
 body {
   font-family: 'Plus Jakarta Sans', Inter, system-ui, -apple-system, sans-serif;
+  background: #eef0f3;
 }
 
 @layer components {
@@ -18,7 +19,7 @@ body {
   }
 
   .primary-btn {
-    @apply bg-gradient-to-r from-cyan-500 to-indigo-500 text-white py-2.5 px-4 font-medium rounded-xl shadow-lg shadow-cyan-900/30 hover:-translate-y-0.5 hover:shadow-xl transition-all duration-300;
+    @apply bg-slate-900 text-white py-2.5 px-4 font-medium rounded-xl shadow-sm hover:bg-slate-700 transition-all duration-300;
   }
 
   .orb {

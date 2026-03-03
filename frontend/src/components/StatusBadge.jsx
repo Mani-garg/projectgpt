@@ -3,9 +3,9 @@ export const StatusBadge = ({ quantity, threshold = 50 }) => {
   const status = numericQuantity > threshold ? 'healthy' : numericQuantity > 0 ? 'warning' : 'critical';
 
   const styles = {
-    healthy: 'bg-emerald-500/20 text-emerald-200 border-emerald-500/30',
-    warning: 'bg-amber-500/20 text-amber-200 border-amber-500/30',
-    critical: 'bg-rose-500/20 text-rose-200 border-rose-500/30'
+    healthy: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    warning: 'bg-amber-50 text-amber-700 border-amber-200',
+    critical: 'bg-rose-50 text-rose-700 border-rose-200'
   };
 
   const labels = {

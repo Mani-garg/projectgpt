@@ -1,9 +1,9 @@
 const FormField = ({ label, type = 'text', placeholder, value, onChange, error, options, className = '', ...props }) => (
   <div className="space-y-2">
-    {label && <label className="block text-sm font-medium text-slate-200">{label}</label>}
+    {label && <label className="block text-sm font-medium text-slate-600">{label}</label>}
     {options ? (
       <select
-        className={`w-full rounded-xl border bg-slate-950/40 px-3 py-2.5 text-slate-100 border-slate-600/70 focus:outline-none focus:ring-2 focus:ring-cyan-400 ${className}`}
+        className={`w-full rounded-xl border bg-white px-3 py-2.5 text-slate-700 border-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-300 ${className}`}
         value={value}
         onChange={onChange}
         {...props}
@@ -17,14 +17,14 @@ const FormField = ({ label, type = 'text', placeholder, value, onChange, error, 
     ) : (
       <input
         type={type}
-        className={`w-full rounded-xl border bg-slate-950/40 px-3 py-2.5 text-slate-100 placeholder:text-slate-400 border-slate-600/70 focus:outline-none focus:ring-2 focus:ring-cyan-400 ${className}`}
+        className={`w-full rounded-xl border bg-white px-3 py-2.5 text-slate-700 placeholder:text-slate-400 border-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-300 ${className}`}
         placeholder={placeholder}
         value={value}
         onChange={onChange}
         {...props}
       />
     )}
-    {error && <p className="text-xs text-rose-300">{error}</p>}
+    {error && <p className="text-xs text-rose-500">{error}</p>}
   </div>
 );
 
