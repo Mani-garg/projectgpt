@@ -11,7 +11,11 @@ import FormField from '../components/FormField.jsx';
 import EmptyState from '../components/EmptyState.jsx';
 import Skeleton from '../components/Skeleton.jsx';
 import NotificationToast from '../components/NotificationToast.jsx';
+import FilterBar from '../components/FilterBar.jsx';
+import BulkActions from '../components/BulkActions.jsx';
+import FormModal from '../components/FormModal.jsx';
 import { useNotification } from '../hooks/useNotification.js';
+import { useImportExport } from '../hooks/useImportExport.js';
 
 const materialUnits = ['kg', 'g', 'm', 'cm', 'litre', 'pcs', 'rolls', 'cones'];
 
@@ -30,15 +34,22 @@ const fieldLabels = {
 
 const DashboardPage = () => {
   const { company, logout } = useAuth();
+  const notification = useNotification();
+  const { exportToCSV, importFromCSV } = useImportExport();
+
   const [activeTab, setActiveTab] = useState('materials');
   const [forms, setForms] = useState(initialForms);
-  const [materialSearch, setMaterialSearch] = useState('');
   const [data, setData] = useState({ materials: [], production: [], sales: [], analytics: null, lowStock: [] });
   const [insights, setInsights] = useState('');
   const [loading, setLoading] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [error, setError] = useState('');
-  const notification = useNotification();
+  const [filters, setFilters] = useState({});
+  const [selectedRows, setSelectedRows] = useState([]);
+  const [editing, setEditing] = useState({ type: null, item: null });
+  const [activeModal, setActiveModal] = useState(null);
+
+  const endpointMap = { materials: '/api/materials', production: '/api/production', sales: '/api/sales' };
 
   const loadAllData = async () => {
     if (!company?.id) return;
@@ -70,6 +81,10 @@ const DashboardPage = () => {
     loadAllData();
   }, [company?.id]);
 
+  useEffect(() => {
+    setSelectedRows([]);
+  }, [activeTab]);
+
   const onSubmit = async (type, endpoint) => {
     setLoading(true);
     setError('');
@@ -80,6 +95,7 @@ const DashboardPage = () => {
       });
       setForms((prev) => ({ ...prev, [type]: initialForms[type] }));
       notification.success(`${type[0].toUpperCase() + type.slice(1)} entry saved successfully.`);
+      setActiveModal(null);
       await loadAllData();
     } catch (err) {
       setError(err.message);
@@ -89,17 +105,75 @@ const DashboardPage = () => {
     }
   };
 
+  const onUpdate = async () => {
+    if (!editing.type || !editing.item) return;
+    setLoading(true);
+    try {
+      await api(`${endpointMap[editing.type]}/${editing.item.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ company_id: company.id, ...forms[editing.type] })
+      });
+      notification.success('Record updated successfully.');
+      setEditing({ type: null, item: null });
+      setActiveModal(null);
+      await loadAllData();
+    } catch (err) {
+      setError(err.message);
+      notification.error(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onDelete = async (type, id) => {
+    if (!window.confirm('Are you sure you want to delete this record?')) return;
+    try {
+      await api(`${endpointMap[type]}/${id}?company_id=${company.id}`, { method: 'DELETE' });
+      notification.success('Record deleted successfully.');
+      await loadAllData();
+    } catch (err) {
+      setError(err.message);
+      notification.error(err.message);
+    }
+  };
+
+  const onBulkDelete = async (rows) => {
+    if (!rows.length) return;
+    if (!window.confirm(`Delete ${rows.length} selected record(s)?`)) return;
+    try {
+      await Promise.all(rows.map((id) => api(`${endpointMap[activeTab]}/${id}?company_id=${company.id}`, { method: 'DELETE' })));
+      notification.success(`${rows.length} record(s) deleted.`);
+      setSelectedRows([]);
+      await loadAllData();
+    } catch (err) {
+      notification.error(err.message);
+    }
+  };
+
+  const onBulkExport = (rows) => {
+    const records = filteredData.filter((row) => rows.includes(row.id));
+    exportToCSV(records, `${activeTab}-export`);
+  };
+
+  const openCreateModal = (type) => {
+    setEditing({ type: null, item: null });
+    setForms((prev) => ({ ...prev, [type]: initialForms[type] }));
+    setActiveModal(type);
+  };
+
+  const openEditModal = (type, item) => {
+    setEditing({ type, item });
+    setForms((prev) => ({ ...prev, [type]: { ...item } }));
+    setActiveModal(type);
+  };
+
   const fetchInsights = async () => {
     setLoading(true);
     setError('');
     try {
       const res = await api('/api/insights', {
         method: 'POST',
-        body: JSON.stringify({
-          materials: data.materials,
-          production: data.production,
-          sales: data.sales
-        })
+        body: JSON.stringify({ materials: data.materials, production: data.production, sales: data.sales })
       });
       setInsights(res.insights);
       notification.success('AI insights generated.');
@@ -108,6 +182,21 @@ const DashboardPage = () => {
       notification.error(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleImportCSV = async (type, event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      const rows = await importFromCSV(file);
+      await Promise.all(rows.map((row) => api(endpointMap[type], { method: 'POST', body: JSON.stringify({ company_id: company.id, ...row }) })));
+      notification.success(`Imported ${rows.length} row(s) to ${type}.`);
+      await loadAllData();
+    } catch (err) {
+      notification.error(`Import failed: ${err.message}`);
+    } finally {
+      event.target.value = '';
     }
   };
 
@@ -124,26 +213,80 @@ const DashboardPage = () => {
     ];
   }, [data.analytics]);
 
-  const filteredMaterials = useMemo(
-    () => data.materials.filter((item) => item.name.toLowerCase().includes(materialSearch.toLowerCase())),
-    [data.materials, materialSearch]
-  );
+  const filteredData = useMemo(() => {
+    const list = data[activeTab] || [];
+    return list.filter((item) => {
+      const query = (filters.searchText || '').toLowerCase();
+      const asText = Object.values(item).join(' ').toLowerCase();
+      const qty = Number(item.quantity ?? 0);
+      const minOk = filters.minQuantity ? qty >= Number(filters.minQuantity) : true;
+      const maxOk = filters.maxQuantity ? qty <= Number(filters.maxQuantity) : true;
+      const dateValue = item.date ? new Date(item.date) : null;
+      const startOk = filters.startDate && dateValue ? dateValue >= new Date(filters.startDate) : true;
+      const endOk = filters.endDate && dateValue ? dateValue <= new Date(filters.endDate) : true;
+      const searchOk = !query || asText.includes(query);
+      return minOk && maxOk && startOk && endOk && searchOk;
+    });
+  }, [activeTab, data, filters]);
 
   const updateForm = (scope, key, value) => {
     setForms((prev) => ({ ...prev, [scope]: { ...prev[scope], [key]: value } }));
   };
 
-  if (isInitialLoading) {
+  const toggleRow = (id) => {
+    setSelectedRows((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]));
+  };
+
+  const toggleAllRows = () => {
+    if (selectedRows.length === filteredData.length) {
+      setSelectedRows([]);
+      return;
+    }
+    setSelectedRows(filteredData.map((row) => row.id));
+  };
+
+  const renderModalContent = (type) => {
+    const fieldsByType = {
+      materials: ['name', 'quantity', 'cost_per_unit', 'unit'],
+      production: ['product_name', 'quantity', 'cost', 'date'],
+      sales: ['buyer_name', 'location', 'quantity', 'selling_price', 'date']
+    };
+
     return (
-      <div className="min-h-screen bg-slate-950 p-8">
-        <Skeleton rows={6} />
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          {fieldsByType[type].map((field) => (
+            <FormField
+              key={field}
+              label={fieldLabels[field] || field}
+              value={forms[type][field] || ''}
+              options={field === 'unit' ? materialUnits : undefined}
+              type={field === 'date' ? 'date' : 'text'}
+              onChange={(e) => updateForm(type, field, e.target.value)}
+            />
+          ))}
+        </div>
+        <button
+          className="primary-btn rounded-lg px-4 py-2"
+          onClick={() => (editing.type ? onUpdate() : onSubmit(type, endpointMap[type]))}
+          disabled={loading}
+        >
+          {editing.type ? 'Save Changes' : `Add ${type.slice(0, -1)}`}
+        </button>
       </div>
     );
+  };
+
+  if (isInitialLoading) {
+    return <div className="min-h-screen bg-slate-950 p-8"><Skeleton rows={6} /></div>;
   }
 
   return (
     <div className="min-h-screen p-4 md:p-6 bg-[radial-gradient(circle_at_top,#164e63_0%,#111827_40%,#020617_100%)]">
       <NotificationToast items={notification.toasts} onDismiss={notification.dismiss} />
+      <FormModal isOpen={Boolean(activeModal)} onClose={() => setActiveModal(null)} title={editing.type ? `Edit ${editing.type}` : `Add ${activeModal}`}>
+        {activeModal ? renderModalContent(activeModal) : null}
+      </FormModal>
       <div className="flex flex-col md:flex-row gap-4">
         <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
         <main className="flex-1 space-y-4">
@@ -151,112 +294,78 @@ const DashboardPage = () => {
             <div>
               <p className="text-[11px] uppercase tracking-[0.22em] text-cyan-600">Smart Manufacturing Suite</p>
               <h1 className="text-2xl font-semibold text-slate-800">Welcome, {company.name}</h1>
-              <p className="text-sm text-slate-600">Fresh palette, cleaner workflows, and richer material intelligence.</p>
+              <p className="text-sm text-slate-500 mt-1">Monitor operations, revenue, and smart insights in one place.</p>
             </div>
-            <button onClick={logout} className="px-4 py-2 bg-slate-900 text-white rounded-xl hover:bg-slate-700 transition">Logout</button>
+            <div className="flex items-center gap-2">
+              <button className="border border-slate-200 text-slate-600 rounded-lg px-3 py-2 text-sm" onClick={logout}>Logout</button>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            {stats.map((stat) => <EnhancedStatCard key={stat.title} {...stat} />)}
-          </div>
+          {!!error && <div className="bg-rose-500/15 text-rose-200 border border-rose-400/50 rounded-lg px-3 py-2 text-sm">{error}</div>}
 
-          {error && <p className="text-rose-200 bg-rose-900/40 border border-rose-300/30 rounded-xl px-3 py-2 text-sm">{error}</p>}
+          <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {stats.map((card) => <EnhancedStatCard key={card.title} {...card} />)}
+          </section>
 
-          {activeTab === 'materials' && (
-            <section className="bg-white/10 backdrop-blur rounded-2xl p-5 shadow-2xl border border-cyan-100/20 space-y-4">
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                <h2 className="text-lg font-semibold text-slate-100">Raw Materials & Units</h2>
-                <input className="border border-slate-500/70 bg-slate-950/30 text-slate-100 p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-300 text-sm md:w-72" placeholder="Search material name..." value={materialSearch} onChange={(e) => setMaterialSearch(e.target.value)} />
-              </div>
-              <div className="grid md:grid-cols-5 gap-3">
-                {['name', 'quantity', 'cost_per_unit'].map((field) => (
-                  <FormField
-                    key={field}
-                    label={fieldLabels[field] || field}
-                    value={forms.materials[field]}
-                    onChange={(e) => updateForm('materials', field, e.target.value)}
-                  />
-                ))}
-                <FormField
-                  label="Unit"
-                  options={materialUnits}
-                  value={forms.materials.unit}
-                  onChange={(e) => updateForm('materials', 'unit', e.target.value)}
-                />
-                <button className="primary-btn rounded-lg px-3 mt-7" onClick={() => onSubmit('materials', '/api/materials')} disabled={loading}>Add Material</button>
-              </div>
-              <DataTable
-                columns={[
-                  { key: 'name', label: 'Name', render: (row) => <span className="font-medium">{row.name}</span> },
-                  { key: 'quantity', label: 'Quantity' },
-                  { key: 'unit', label: 'Unit', render: (row) => <span className="uppercase text-xs tracking-wide text-cyan-200">{row.unit || 'kg'}</span> },
-                  { key: 'cost_per_unit', label: 'Cost / Unit', render: (row) => `₹${row.cost_per_unit}` },
-                  { key: 'status', label: 'Status', render: (row) => <StatusBadge quantity={row.quantity} /> }
-                ]}
-                data={filteredMaterials}
-                emptyTitle="No materials found"
-                emptyDescription="Try adding inventory or adjusting your search query."
-              />
-            </section>
-          )}
-
-          {activeTab === 'production' && (
+          {['materials', 'production', 'sales'].includes(activeTab) && (
             <section className="bg-white/10 backdrop-blur rounded-2xl p-5 shadow-2xl border border-cyan-100/20 space-y-3">
-              <h2 className="text-lg font-semibold text-slate-100">Production</h2>
-              <div className="grid md:grid-cols-5 gap-3">
-                {['product_name', 'quantity', 'cost', 'date'].map((field) => (
-                  <FormField key={field} label={fieldLabels[field] || field} type={field === 'date' ? 'date' : 'text'} value={forms.production[field]} onChange={(e) => updateForm('production', field, e.target.value)} />
-                ))}
-                <button className="primary-btn rounded-lg px-3 mt-7" onClick={() => onSubmit('production', '/api/production')} disabled={loading}>Add Batch</button>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h2 className="text-lg font-semibold text-slate-100 capitalize">{activeTab}</h2>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button className="primary-btn rounded-lg px-3 py-2" onClick={() => openCreateModal(activeTab)}>+ Add</button>
+                  <button className="rounded-lg border border-white/20 px-3 py-2 text-slate-100" onClick={() => exportToCSV(filteredData, `${activeTab}-all`)}>Export CSV</button>
+                  <label className="rounded-lg border border-white/20 px-3 py-2 text-slate-100 cursor-pointer">
+                    Import CSV
+                    <input type="file" accept=".csv" className="hidden" onChange={(e) => handleImportCSV(activeTab, e)} />
+                  </label>
+                </div>
               </div>
-              <DataTable
-                columns={[
-                  { key: 'product_name', label: 'Product' },
-                  { key: 'quantity', label: 'Qty' },
-                  { key: 'cost', label: 'Cost', render: (row) => `₹${row.cost}` },
-                  { key: 'date', label: 'Date' }
-                ]}
-                data={data.production}
-                emptyTitle="No production batches"
-              />
-            </section>
-          )}
 
-          {activeTab === 'sales' && (
-            <section className="bg-white/10 backdrop-blur rounded-2xl p-5 shadow-2xl border border-cyan-100/20 space-y-3">
-              <h2 className="text-lg font-semibold text-slate-100">Sales</h2>
-              <div className="grid md:grid-cols-6 gap-3">
-                {['buyer_name', 'location', 'quantity', 'selling_price', 'date'].map((field) => (
-                  <FormField key={field} label={fieldLabels[field] || field} type={field === 'date' ? 'date' : 'text'} value={forms.sales[field]} onChange={(e) => updateForm('sales', field, e.target.value)} />
-                ))}
-                <button className="primary-btn rounded-lg px-3 mt-7" onClick={() => onSubmit('sales', '/api/sales')} disabled={loading}>Record Sale</button>
-              </div>
+              <FilterBar onFilter={setFilters} includeDate={activeTab !== 'materials'} includeQuantity />
+              <BulkActions selectedRows={selectedRows} onDelete={onBulkDelete} onExport={onBulkExport} />
+
               <DataTable
-                columns={[
-                  { key: 'buyer_name', label: 'Buyer' },
-                  { key: 'location', label: 'Location' },
-                  { key: 'quantity', label: 'Qty' },
-                  { key: 'selling_price', label: 'Price', render: (row) => `₹${row.selling_price}` },
-                  { key: 'date', label: 'Date' }
-                ]}
-                data={data.sales}
-                emptyTitle="No sales recorded"
+                selectable
+                selectedRows={selectedRows}
+                onToggleRow={toggleRow}
+                onToggleAll={toggleAllRows}
+                columns={
+                  activeTab === 'materials'
+                    ? [
+                        { key: 'name', label: 'Name', render: (row) => <span className="font-medium">{row.name}</span> },
+                        { key: 'quantity', label: 'Quantity' },
+                        { key: 'unit', label: 'Unit', render: (row) => <span className="uppercase text-xs tracking-wide text-cyan-200">{row.unit || 'kg'}</span> },
+                        { key: 'cost_per_unit', label: 'Cost / Unit', render: (row) => `₹${row.cost_per_unit}` },
+                        { key: 'status', label: 'Status', render: (row) => <StatusBadge quantity={row.quantity} /> },
+                        { key: 'actions', label: 'Actions', render: (row) => <div className="flex gap-2"><button onClick={() => openEditModal('materials', row)} className="text-cyan-200">Edit</button><button onClick={() => onDelete('materials', row.id)} className="text-rose-200">Delete</button></div> }
+                      ]
+                    : activeTab === 'production'
+                      ? [
+                          { key: 'product_name', label: 'Product' },
+                          { key: 'quantity', label: 'Qty' },
+                          { key: 'cost', label: 'Cost', render: (row) => `₹${row.cost}` },
+                          { key: 'date', label: 'Date' },
+                          { key: 'actions', label: 'Actions', render: (row) => <div className="flex gap-2"><button onClick={() => openEditModal('production', row)} className="text-cyan-200">Edit</button><button onClick={() => onDelete('production', row.id)} className="text-rose-200">Delete</button></div> }
+                        ]
+                      : [
+                          { key: 'buyer_name', label: 'Buyer' },
+                          { key: 'location', label: 'Location' },
+                          { key: 'quantity', label: 'Qty' },
+                          { key: 'selling_price', label: 'Price', render: (row) => `₹${row.selling_price}` },
+                          { key: 'date', label: 'Date' },
+                          { key: 'actions', label: 'Actions', render: (row) => <div className="flex gap-2"><button onClick={() => openEditModal('sales', row)} className="text-cyan-200">Edit</button><button onClick={() => onDelete('sales', row.id)} className="text-rose-200">Delete</button></div> }
+                        ]
+                }
+                data={filteredData}
+                emptyTitle={`No ${activeTab} found`}
               />
             </section>
           )}
 
           {activeTab === 'analytics' && data.analytics && (
             <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <ChartCard title="Daily Sales Trend" change={5.2}>
-                <div className="h-72">
-                  <ResponsiveContainer width="100%" height="100%"><LineChart data={data.analytics.dailySales}><CartesianGrid strokeDasharray="3 3" stroke="#1e293b" /><XAxis dataKey="date" stroke="#cbd5e1" /><YAxis stroke="#cbd5e1" /><Tooltip /><Line type="monotone" dataKey="total" stroke="#22d3ee" strokeWidth={3} dot={false} /></LineChart></ResponsiveContainer>
-                </div>
-              </ChartCard>
-              <ChartCard title="Daily Production Cost" change={-2.1}>
-                <div className="h-72">
-                  <ResponsiveContainer width="100%" height="100%"><BarChart data={data.analytics.dailyCost}><CartesianGrid strokeDasharray="3 3" stroke="#1e293b" /><XAxis dataKey="date" stroke="#cbd5e1" /><YAxis stroke="#cbd5e1" /><Tooltip /><Bar dataKey="total" fill="#818cf8" radius={[8, 8, 0, 0]} /></BarChart></ResponsiveContainer>
-                </div>
-              </ChartCard>
+              <ChartCard title="Daily Sales Trend" change={5.2}><div className="h-72"><ResponsiveContainer width="100%" height="100%"><LineChart data={data.analytics.dailySales}><CartesianGrid strokeDasharray="3 3" stroke="#1e293b" /><XAxis dataKey="date" stroke="#cbd5e1" /><YAxis stroke="#cbd5e1" /><Tooltip /><Line type="monotone" dataKey="total" stroke="#22d3ee" strokeWidth={3} dot={false} /></LineChart></ResponsiveContainer></div></ChartCard>
+              <ChartCard title="Daily Production Cost" change={-2.1}><div className="h-72"><ResponsiveContainer width="100%" height="100%"><BarChart data={data.analytics.dailyCost}><CartesianGrid strokeDasharray="3 3" stroke="#1e293b" /><XAxis dataKey="date" stroke="#cbd5e1" /><YAxis stroke="#cbd5e1" /><Tooltip /><Bar dataKey="total" fill="#818cf8" radius={[8, 8, 0, 0]} /></BarChart></ResponsiveContainer></div></ChartCard>
               <div className="rounded-2xl border border-cyan-100/20 bg-white/10 p-4 shadow-2xl backdrop-blur lg:col-span-2">
                 <h3 className="font-semibold mb-2 text-slate-100">Low Stock Warnings</h3>
                 {data.lowStock.length === 0 ? <EmptyState title="Inventory is healthy" description="No low stock alerts right now." icon="✅" /> : <ul className="list-disc pl-5 text-slate-200">{data.lowStock.map((item) => <li key={item.id}>{item.name} ({item.quantity} {item.unit || 'kg'})</li>)}</ul>}

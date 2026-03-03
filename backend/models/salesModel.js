@@ -15,3 +15,16 @@ export const getSalesByCompany = async (companyId) => {
   );
   return rows;
 };
+
+export const updateSaleById = async ({ id, company_id, buyer_name, location, quantity, selling_price, date }) => {
+  const [result] = await pool.query(
+    'UPDATE sales SET buyer_name = ?, location = ?, quantity = ?, selling_price = ?, date = ? WHERE id = ? AND company_id = ?',
+    [buyer_name, location, quantity, selling_price, date, id, company_id]
+  );
+  return result.affectedRows;
+};
+
+export const deleteSaleById = async ({ id, company_id }) => {
+  const [result] = await pool.query('DELETE FROM sales WHERE id = ? AND company_id = ?', [id, company_id]);
+  return result.affectedRows;
+};
