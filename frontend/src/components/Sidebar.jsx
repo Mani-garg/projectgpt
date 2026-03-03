@@ -1,4 +1,4 @@
-const tabs = ['materials', 'production', 'sales', 'analytics', 'ai'];
+const tabs = ['materials', 'production', 'sales', 'analytics', 'insights'];
 
 const Sidebar = ({ activeTab, setActiveTab }) => (
   <aside className="w-full md:w-64 bg-slate-900 text-white p-4 rounded-xl">
