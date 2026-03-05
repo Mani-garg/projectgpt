@@ -1,4 +1,4 @@
-# Textile ERP (Full-Stack Web Application)
+# Textile Enterprise Resource Planning  (Full-Stack Web Application)
 
 A modular ERP application built for textile businesses to manage inventory, production, sales, and business performance in one dashboard.
 
