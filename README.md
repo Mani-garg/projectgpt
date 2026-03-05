@@ -2,7 +2,7 @@
 
 A modular ERP application built for textile businesses to manage inventory, production, sales, and business performance in one dashboard.
 
-## Interviewer Quick View
+
 - **Problem solved:** Small manufacturers often track material, production, and sales data in separate tools.
 - **Solution:** A single full-stack system with CRUD workflows, analytics, and generated business insights.
 - **Role-ready strengths demonstrated:** API design, relational data modeling, dashboard UX, modular React architecture, and Express + MySQL integration.
