@@ -64,20 +64,9 @@ cd backend
 npm install
 ```
 
-Create `backend/.env` manually:
-```env
-PORT=5000
-DB_HOST=localhost
-DB_USER=root
-DB_PASSWORD=your_password
-DB_NAME=textile_erp
-DB_PORT=3306
-CLIENT_URL=http://localhost:5173
-```
-
 Run backend:
 ```bash
-npm run dev
+node server.js
 ```
 
 ### 2) Frontend
@@ -155,7 +144,3 @@ curl -X POST http://localhost:5000/api/insights \
   -d '{"materials":[{"name":"Cotton Yarn","quantity":35}],"production":[{"product_name":"Shirt","quantity":120,"cost":3000}],"sales":[{"quantity":120,"selling_price":45}]}'
 ```
 
-## Notes for Interview Discussion
-- The backend is organized by routes → controllers → models for separation of concerns.
-- The frontend emphasizes reusable UI components and dashboard-centric data presentation.
-- Data ownership per company is enforced by schema design and route usage.
