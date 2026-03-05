@@ -1,12 +1,32 @@
-# Textile ERP (Full Stack)
+# Textile ERP (Full-Stack Web Application)
 
-Production-ready modular Textile ERP web application with business insights.
+A modular ERP application built for textile businesses to manage inventory, production, sales, and business performance in one dashboard.
+
+## Interviewer Quick View
+- **Problem solved:** Small manufacturers often track material, production, and sales data in separate tools.
+- **Solution:** A single full-stack system with CRUD workflows, analytics, and generated business insights.
+- **Role-ready strengths demonstrated:** API design, relational data modeling, dashboard UX, modular React architecture, and Express + MySQL integration.
 
 ## Tech Stack
-- **Frontend**: React + Vite, Tailwind CSS, React Router, Recharts
-- **Backend**: Node.js, Express, MySQL, dotenv, bcrypt
+- **Frontend:** React (Vite), Tailwind CSS, React Router, Recharts
+- **Backend:** Node.js, Express, MySQL2, dotenv, bcrypt
 
----
+## Core Features
+- Company registration and login with hashed passwords.
+- Material, production, and sales management (create, read, update, delete).
+- KPI and trend analytics per company.
+- Business insight endpoint for profitability and stock-level guidance.
+- Multi-tenant data separation via `company_id` across business tables.
+
+## System Architecture
+
+```text
+React UI (frontend)
+   ↓ HTTP (REST)
+Express API (backend)
+   ↓
+MySQL database
+```
 
 ## Project Structure
 
@@ -27,56 +47,55 @@ projectgpt/
       components/
       context/
       pages/
-    index.html
 ```
 
----
-
-## Database Schema (MySQL)
-
-The backend auto-creates these tables at startup:
-
+## Database Tables (Auto-Initialized)
+The backend initializes required tables at startup:
 - `companies(id, name, email, password, logo_url)`
 - `materials(id, company_id, name, quantity, cost_per_unit)`
 - `production(id, company_id, product_name, quantity, cost, date)`
 - `sales(id, company_id, buyer_name, location, quantity, selling_price, date)`
 
----
+## Local Setup
 
-## Backend Setup
-
+### 1) Backend
 ```bash
 cd backend
-cp .env.example .env
 npm install
+```
+
+Create `backend/.env` manually:
+```env
+PORT=5000
+DB_HOST=localhost
+DB_USER=root
+DB_PASSWORD=your_password
+DB_NAME=textile_erp
+DB_PORT=3306
+CLIENT_URL=http://localhost:5173
+```
+
+Run backend:
+```bash
 npm run dev
 ```
 
-`.env` values:
-- `PORT=5000`
-- `DB_HOST=localhost`
-- `DB_USER=root`
-- `DB_PASSWORD=your_password`
-- `DB_NAME=textile_erp`
-- `DB_PORT=3306`
-- `CLIENT_URL=http://localhost:5173`
-
----
-
-## Frontend Setup
-
+### 2) Frontend
 ```bash
 cd frontend
-cp .env.example .env
 npm install
 npm run dev
 ```
 
-Frontend defaults to backend on `http://localhost:5000`.
-
----
+Optional `frontend/.env`:
+```env
+VITE_API_URL=http://localhost:5000
+```
 
 ## API Endpoints
+
+### Health
+- `GET /health`
 
 ### Auth
 - `POST /api/auth/register`
@@ -85,14 +104,20 @@ Frontend defaults to backend on `http://localhost:5000`.
 ### Materials
 - `POST /api/materials`
 - `GET /api/materials/:company_id`
+- `PUT /api/materials/:id`
+- `DELETE /api/materials/:id`
 
 ### Production
 - `POST /api/production`
 - `GET /api/production/:company_id`
+- `PUT /api/production/:id`
+- `DELETE /api/production/:id`
 
 ### Sales
 - `POST /api/sales`
 - `GET /api/sales/:company_id`
+- `PUT /api/sales/:id`
+- `DELETE /api/sales/:id`
 
 ### Analytics
 - `GET /api/analytics/:company_id`
@@ -100,7 +125,7 @@ Frontend defaults to backend on `http://localhost:5000`.
 ### Insights
 - `POST /api/insights`
 
-## Sample API Calls
+## Example API Calls
 
 ### Register
 ```bash
@@ -123,19 +148,14 @@ curl -X POST http://localhost:5000/api/materials \
   -d '{"company_id":1,"name":"Cotton Yarn","quantity":200,"cost_per_unit":15.75}'
 ```
 
-### Business Insights
+### Request Business Insights
 ```bash
 curl -X POST http://localhost:5000/api/insights \
   -H "Content-Type: application/json" \
   -d '{"materials":[{"name":"Cotton Yarn","quantity":35}],"production":[{"product_name":"Shirt","quantity":120,"cost":3000}],"sales":[{"quantity":120,"selling_price":45}]}'
 ```
 
----
-
-## Highlights
-- Multi-company data isolation using `company_id` on each business table.
-- Secure auth with bcrypt-hashed passwords.
-- Business insight engine for profitability, stock warnings, and recommendations.
-- Analytics dashboard with KPI cards and daily charts.
-- Low-stock alerts integrated in analytics.
-
+## Notes for Interview Discussion
+- The backend is organized by routes → controllers → models for separation of concerns.
+- The frontend emphasizes reusable UI components and dashboard-centric data presentation.
+- Data ownership per company is enforced by schema design and route usage.
